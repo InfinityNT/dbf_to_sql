@@ -186,7 +186,7 @@ class Movement(Base):
     tipodoc = Column(String(2), index=True)
     numdoc = Column(String(10), index=True)
     numpar = Column(String(3))
-    numart = Column(String(20), index=True)  # Removed FK constraint to allow missing products
+    numart = Column(String(20), ForeignKey("products.numart", ondelete="SET NULL"), index=True, nullable=True)
     precio = Column(DECIMAL(13,5))
     costo = Column(DECIMAL(13,5))
     costo2 = Column(DECIMAL(13,5))

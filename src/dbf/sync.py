@@ -258,6 +258,14 @@ class DBFSyncService:
                 value = value.strip() if value else None
             movement_data[field_name] = value
         
+        # Check if referenced product exists, if not set numart to None
+        numart = movement_data.get('numart')
+        if numart:
+            product_exists = db.query(Product).filter(Product.numart == numart).first()
+            if not product_exists:
+                logger.warning(f"Product {numart} not found, setting movement.numart to None")
+                movement_data['numart'] = None
+        
         movement = Movement(**movement_data)
         db.add(movement)
     
