@@ -181,22 +181,44 @@ class DBFSyncService:
         if not numcli:
             return
             
+        # Clean and normalize the customer number
+        numcli = str(numcli).strip()
+        if not numcli:
+            return
+            
         customer = db.query(Customer).filter(Customer.numcli == numcli).first()
         
         if customer:
             # Update existing
             for key, value in record_data.items():
-                if hasattr(customer, key.lower()):
-                    setattr(customer, key.lower(), value)
+                field_name = key.lower()
+                if hasattr(customer, field_name):
+                    # Clean string values
+                    if isinstance(value, str):
+                        value = value.strip() if value else None
+                    setattr(customer, field_name, value)
         else:
-            # Create new
-            customer_data = {key.lower(): value for key, value in record_data.items()}
+            # Create new - clean all string values
+            customer_data = {}
+            for key, value in record_data.items():
+                field_name = key.lower()
+                if isinstance(value, str):
+                    value = value.strip() if value else None
+                customer_data[field_name] = value
+            
+            # Ensure numcli is set correctly
+            customer_data['numcli'] = numcli
             customer = Customer(**customer_data)
             db.add(customer)
     
     async def _upsert_product(self, db: Session, record_data: Dict[str, Any]):
         """Upsert product record"""
         numart = record_data.get('NUMART')
+        if not numart:
+            return
+            
+        # Clean and normalize the product number
+        numart = str(numart).strip()
         if not numart:
             return
             
@@ -227,9 +249,15 @@ class DBFSyncService:
     async def _upsert_movement(self, db: Session, record_data: Dict[str, Any]):
         """Upsert movement record"""
         # Movements are usually append-only, so we'll just insert
-        # You might want to add logic to handle updates based on your business rules
+        # Clean all string values first
         
-        movement_data = {key.lower(): value for key, value in record_data.items()}
+        movement_data = {}
+        for key, value in record_data.items():
+            field_name = key.lower()
+            if isinstance(value, str):
+                value = value.strip() if value else None
+            movement_data[field_name] = value
+        
         movement = Movement(**movement_data)
         db.add(movement)
     
