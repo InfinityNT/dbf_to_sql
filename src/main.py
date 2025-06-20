@@ -5,6 +5,8 @@ from sqlalchemy import create_engine
 from typing import Optional, List
 import uvicorn
 import logging
+import time
+import asyncio
 from datetime import datetime, date
 
 from src.database import get_db, test_connection, Base, engine
@@ -39,18 +41,37 @@ async def startup_event():
     """Initialize database and start file monitoring"""
     logger.info("Starting DBF to SQL API...")
     
-    # Test database connection
-    if not test_connection():
-        logger.error("Failed to connect to database")
-        raise Exception("Database connection failed")
+    # Wait for database with retries
+    max_retries = 30
+    retry_interval = 2
+    
+    logger.info("Waiting for database connection...")
+    for attempt in range(max_retries):
+        if test_connection():
+            logger.info("Database connection established successfully")
+            break
+        logger.info(f"Database not ready, retrying in {retry_interval}s... (attempt {attempt + 1}/{max_retries})")
+        await asyncio.sleep(retry_interval)
+    else:
+        logger.error("Failed to connect to database after all retries")
+        raise Exception("Database connection failed after 30 attempts")
     
     # Create tables if they don't exist
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created/verified")
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created/verified")
+    except Exception as e:
+        logger.error(f"Failed to create database tables: {e}")
+        raise Exception("Database table creation failed")
     
     # Start file watcher service
-    dbf_watcher.start()
-    logger.info("DBF file watcher started")
+    try:
+        dbf_watcher.start()
+        logger.info("DBF file watcher started")
+    except Exception as e:
+        logger.error(f"Failed to start file watcher: {e}")
+        # Don't fail startup if file watcher fails - API can still work
+        logger.warning("Continuing without file watcher")
     
     logger.info("API started successfully")
 
