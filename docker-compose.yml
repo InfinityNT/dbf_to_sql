@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: dbf-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-sales_db}
+      MYSQL_USER: ${MYSQL_USER:-sales_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-sales_pass}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-shared-data:/var/lib/mysql
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - dbf-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  api:
+    build: .
+    container_name: dbf-api
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=mysql+pymysql://${MYSQL_USER:-sales_user}:${MYSQL_PASSWORD:-sales_pass}@mysql:3306/${MYSQL_DATABASE:-sales_db}
+      - DBF_WATCH_PATH=/app/data
+    ports:
+      - "8000:8000"
+    volumes:
+      - /mnt/dbf-share:/app/data:ro  # Mount Windows SAIT folder as read-only
+      - ./logs:/app/logs     # Persistent logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - dbf-network
+
+volumes:
+  mysql-shared-data:
+    external: true  # Shared across projects
+
+networks:
+  dbf-network:
+    driver: bridge
