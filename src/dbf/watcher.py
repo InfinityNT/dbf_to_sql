@@ -29,6 +29,11 @@ class DBFFileHandler(FileSystemEventHandler):
         if file_path.suffix.upper() not in ['.DBF']:
             return
             
+        # Only process specific files we're interested in
+        if not self._should_process_file(file_path):
+            logger.debug(f"Skipping file not in target list: {file_path}")
+            return
+            
         # Avoid duplicate processing
         if str(file_path) in self.processing:
             logger.debug(f"Already processing {file_path}, skipping")
@@ -38,6 +43,15 @@ class DBFFileHandler(FileSystemEventHandler):
         
         # Process file asynchronously
         asyncio.create_task(self._process_file(str(file_path)))
+    
+    def _should_process_file(self, file_path: Path) -> bool:
+        """Check if this file should be processed"""
+        file_name = file_path.name.lower()
+        
+        # Only process specific files
+        target_files = ['clientes.dbf', 'arts.dbf', 'movim.dbf']
+        
+        return file_name in target_files
     
     async def _process_file(self, file_path: str):
         """Process a modified DBF file"""
@@ -101,16 +115,21 @@ class DBFWatcherService:
         """Scan for existing DBF files on startup"""
         try:
             watch_path = Path(settings.dbf_watch_path)
-            logger.info("Performing initial scan of DBF files")
+            logger.info("Performing initial scan of target DBF files")
             
             # Find all DBF files
-            dbf_files = list(watch_path.glob("**/*.DBF")) + list(watch_path.glob("**/*.dbf"))
+            all_dbf_files = list(watch_path.glob("**/*.DBF")) + list(watch_path.glob("**/*.dbf"))
             
-            logger.info(f"Found {len(dbf_files)} DBF files")
+            # Filter to only target files
+            target_files = ['clientes.dbf', 'arts.dbf', 'movim.dbf']
+            dbf_files = [f for f in all_dbf_files if f.name.lower() in target_files]
             
-            # Process each file
+            logger.info(f"Found {len(all_dbf_files)} total DBF files, processing {len(dbf_files)} target files")
+            
+            # Process each target file
             for dbf_file in dbf_files:
                 try:
+                    logger.info(f"Processing target file: {dbf_file.name}")
                     await self.sync_service.process_dbf_file(str(dbf_file))
                 except Exception as e:
                     logger.error(f"Error processing {dbf_file} during initial scan: {e}")
