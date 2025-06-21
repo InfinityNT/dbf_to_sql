@@ -120,13 +120,18 @@ class DBFWatcherService:
             # Find all DBF files
             all_dbf_files = list(watch_path.glob("**/*.DBF")) + list(watch_path.glob("**/*.dbf"))
             
-            # Filter to only target files
-            target_files = ['clientes.dbf', 'arts.dbf', 'movim.dbf']
-            dbf_files = [f for f in all_dbf_files if f.name.lower() in target_files]
+            # Filter and order target files - products must be processed before movements
+            target_files_order = ['clientes.dbf', 'arts.dbf', 'movim.dbf']  # Order matters!
+            dbf_files = []
             
-            logger.info(f"Found {len(all_dbf_files)} total DBF files, processing {len(dbf_files)} target files")
+            # Process files in the correct order
+            for target_file in target_files_order:
+                matching_files = [f for f in all_dbf_files if f.name.lower() == target_file]
+                dbf_files.extend(matching_files)
             
-            # Process each target file
+            logger.info(f"Found {len(all_dbf_files)} total DBF files, processing {len(dbf_files)} target files in dependency order")
+            
+            # Process each target file in dependency order
             for dbf_file in dbf_files:
                 try:
                     logger.info(f"Processing target file: {dbf_file.name}")

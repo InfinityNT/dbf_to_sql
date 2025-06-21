@@ -1,7 +1,7 @@
 import struct
 import zlib
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any
 from dbfread import DBF
 import logging
 

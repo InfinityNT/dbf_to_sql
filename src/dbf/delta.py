@@ -1,4 +1,4 @@
-from typing import Dict, List, Set
+from typing import Dict, List
 
 class DeltaDetector:
     """Detect changes between DBF file snapshots using checksums"""
