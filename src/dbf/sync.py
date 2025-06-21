@@ -235,14 +235,21 @@ class DBFSyncService:
             for key, value in record_data.items():
                 model_field = field_mapping.get(key, key.lower())
                 if hasattr(product, model_field):
+                    # Clean string values
+                    if isinstance(value, str):
+                        value = value.strip() if value else None
                     setattr(product, model_field, value)
         else:
-            # Create new
+            # Create new - clean all string values
             product_data = {}
             for key, value in record_data.items():
                 model_field = field_mapping.get(key, key.lower())
+                if isinstance(value, str):
+                    value = value.strip() if value else None
                 product_data[model_field] = value
                 
+            # Ensure numart is set correctly
+            product_data['numart'] = numart
             product = Product(**product_data)
             db.add(product)
     
@@ -261,9 +268,17 @@ class DBFSyncService:
         # Check if referenced product exists, if not set numart to None
         numart = movement_data.get('numart')
         if numart:
-            product_exists = db.query(Product).filter(Product.numart == numart).first()
-            if not product_exists:
-                logger.warning(f"Product {numart} not found, setting movement.numart to None")
+            # Clean numart for consistent lookup
+            numart_clean = str(numart).strip() if numart else None
+            if numart_clean:
+                product_exists = db.query(Product).filter(Product.numart == numart_clean).first()
+                if not product_exists:
+                    logger.warning(f"Product {numart_clean} not found, setting movement.numart to None")
+                    movement_data['numart'] = None
+                else:
+                    # Use the cleaned version
+                    movement_data['numart'] = numart_clean
+            else:
                 movement_data['numart'] = None
         
         movement = Movement(**movement_data)
